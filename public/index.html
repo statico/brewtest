@@ -6,7 +6,7 @@
 <title>brewtest 🍺</title>
 <style>
   :root { color-scheme: light dark; --ok: #2e8b57; --bad: #c0392b; --accent: #fbb040; }
-  body { font: 18px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; max-width: 640px; margin: 3rem auto; padding: 0 1rem; }
+  body { font: 18px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; max-width: 960px; margin: 3rem auto; padding: 0 1rem; }
   h1 { margin: 0 0 .25rem; }
   .sub { opacity: .7; margin: 0 0 1.5rem; }
   .stats { display: flex; gap: 1.5rem; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; }
@@ -14,7 +14,10 @@
   .pkg { font-size: 2.2em; font-weight: bold; color: var(--accent); word-break: break-all; margin: 1rem 0; }
   .pkg small { font-size: .4em; color: inherit; opacity: .6; display: block; }
   button { font: inherit; cursor: pointer; border-radius: 8px; padding: .5rem 1rem; }
-  .opt { display: block; width: 100%; text-align: left; margin: .5rem 0; padding: .8rem 1rem; border: 2px solid #8884; background: #8881; }
+  #opts { display: grid; gap: .5rem; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+  .opt { text-align: left; padding: .8rem 1rem; border: 2px solid #8884; background: #8881; }
+  .opt kbd { display: inline-block; border: 1px solid #8886; border-radius: 4px; padding: 0 .4em; margin-right: .5em; font-size: .8em; opacity: .7; }
+  .keys { opacity: .5; font-size: .8em; margin-top: 2rem; }
   .opt:hover:not(:disabled) { border-color: var(--accent); }
   .opt.right { border-color: var(--ok); background: color-mix(in srgb, var(--ok) 20%, transparent); }
   .opt.wrong { border-color: var(--bad); background: color-mix(in srgb, var(--bad) 20%, transparent); }
@@ -42,6 +45,7 @@
 <div id="opts"></div>
 <div id="verdict"></div>
 <button id="next">next →</button>
+<p class="keys"><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> pick · <kbd>enter</kbd> next</p>
 
 <script>
 const $ = (id) => document.getElementById(id);
@@ -74,12 +78,12 @@ function round() {
   while (choices.size < 3) choices.add(pick(formulae));
   $("pkg").innerHTML = `<small>brew install</small>${current[0]}${added[current[0]] ? `<small>added ${added[current[0]]}</small>` : ""}`;
   $("opts").innerHTML = "";
-  for (const c of [...choices].sort(() => Math.random() - 0.5)) {
+  [...choices].sort(() => Math.random() - 0.5).forEach((c, i) => {
     const b = document.createElement("button");
-    b.className = "opt"; b.textContent = c[1];
+    b.className = "opt"; b.innerHTML = `<kbd>${i + 1}</kbd>`; b.append(c[1]); b.dataset.desc = c[1];
     b.onclick = () => answer(b, c);
     $("opts").append(b);
-  }
+  });
 }
 
 function answer(btn, choice) {
@@ -91,7 +95,7 @@ function answer(btn, choice) {
   save();
   for (const b of $("opts").children) {
     b.disabled = true;
-    if (b.textContent === current[1]) b.classList.add("right");
+    if (b.dataset.desc === current[1]) b.classList.add("right");
   }
   if (!ok) btn.classList.add("wrong");
   $("verdict").textContent = ok ? pick(["🎉 correct!", "🍻 nailed it", "🧠 big brain", "✅ yep"]) : pick(["❌ nope", "💀 oof", "🙈 not even close", "🤦 nah"]);
