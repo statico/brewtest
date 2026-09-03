@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>brewtest 🍺</title>
+<style>
+  :root { color-scheme: light dark; --ok: #2e8b57; --bad: #c0392b; --accent: #fbb040; }
+  body { font: 18px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; max-width: 640px; margin: 3rem auto; padding: 0 1rem; }
+  h1 { margin: 0 0 .25rem; }
+  .sub { opacity: .7; margin: 0 0 1.5rem; }
+  .stats { display: flex; gap: 1.5rem; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; }
+  .stats b { font-size: 1.4em; }
+  .pkg { font-size: 2.2em; font-weight: bold; color: var(--accent); word-break: break-all; margin: 1rem 0; }
+  .pkg small { font-size: .4em; color: inherit; opacity: .6; display: block; }
+  button { font: inherit; cursor: pointer; border-radius: 8px; padding: .5rem 1rem; }
+  .opt { display: block; width: 100%; text-align: left; margin: .5rem 0; padding: .8rem 1rem; border: 2px solid #8884; background: #8881; }
+  .opt:hover:not(:disabled) { border-color: var(--accent); }
+  .opt.right { border-color: var(--ok); background: color-mix(in srgb, var(--ok) 20%, transparent); }
+  .opt.wrong { border-color: var(--bad); background: color-mix(in srgb, var(--bad) 20%, transparent); }
+  #verdict { min-height: 2em; margin: 1rem 0; font-weight: bold; font-size: 1.3em; }
+  #next { display: none; }
+  select { font: inherit; padding: .3rem; }
+</style>
+</head>
+<body>
+<h1>🍺 brewtest</h1>
+<p class="sub">Guess what the Homebrew formula does. Impress no one.</p>
+<div class="stats">
+  <span>score <b id="score">0/0</b></span>
+  <span>streak <b id="streak">0</b> 🔥</span>
+  <span>best <b id="best">0</b></span>
+  <button id="reset">reset</button>
+  <label>added <select id="range">
+    <option value="0">all time</option>
+    <option value="7">past week</option>
+    <option value="30">past month</option>
+    <option value="365">past year</option>
+  </select></label>
+</div>
+<div class="pkg" id="pkg">loading…</div>
+<div id="opts"></div>
+<div id="verdict"></div>
+<button id="next">next →</button>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+let formulae = [], added = {}, pool = [], current, answered;
+let stats = JSON.parse(localStorage.stats || '{"total":0,"correct":0,"streak":0,"best":0}');
+
+function save() {
+  localStorage.stats = JSON.stringify(stats);
+  $("score").textContent = `${stats.correct}/${stats.total}`;
+  $("streak").textContent = stats.streak;
+  $("best").textContent = stats.best;
+}
+
+function setPool() {
+  const days = +$("range").value;
+  localStorage.range = days;
+  if (!days) { pool = formulae; return; }
+  const cutoff = new Date(Date.now() - days * 864e5).toISOString().slice(0, 10);
+  pool = formulae.filter(([n]) => added[n] >= cutoff);
+}
+
+function round() {
+  answered = false;
+  $("next").style.display = "none";
+  $("verdict").textContent = "";
+  if (!pool.length) { $("pkg").textContent = "nothing new in that window 🤷"; $("opts").innerHTML = ""; return; }
+  current = pick(pool);
+  const choices = new Set([current]);
+  while (choices.size < 3) choices.add(pick(formulae));
+  $("pkg").innerHTML = `<small>brew install</small>${current[0]}${added[current[0]] ? `<small>added ${added[current[0]]}</small>` : ""}`;
+  $("opts").innerHTML = "";
+  for (const c of [...choices].sort(() => Math.random() - 0.5)) {
+    const b = document.createElement("button");
+    b.className = "opt"; b.textContent = c[1];
+    b.onclick = () => answer(b, c);
+    $("opts").append(b);
+  }
+}
+
+function answer(btn, choice) {
+  if (answered) return; answered = true;
+  const ok = choice === current;
+  stats.total++;
+  if (ok) { stats.correct++; stats.streak++; stats.best = Math.max(stats.best, stats.streak); }
+  else stats.streak = 0;
+  save();
+  for (const b of $("opts").children) {
+    b.disabled = true;
+    if (b.textContent === current[1]) b.classList.add("right");
+  }
+  if (!ok) btn.classList.add("wrong");
+  $("verdict").textContent = ok ? pick(["🎉 correct!", "🍻 nailed it", "🧠 big brain", "✅ yep"]) : pick(["❌ nope", "💀 oof", "🙈 not even close", "🤦 nah"]);
+  $("next").style.display = "inline-block";
+  $("next").focus();
+}
+
+$("next").onclick = round;
+$("range").onchange = () => { setPool(); round(); };
+$("reset").onclick = () => { stats = { total: 0, correct: 0, streak: 0, best: 0 }; save(); };
+document.addEventListener("keydown", (e) => {
+  if (answered && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); round(); }
+  else if (!answered && "123".includes(e.key) && $("opts").children[e.key - 1]) $("opts").children[e.key - 1].click();
+});
+
+save();
+Promise.all([fetch("formulae.json").then((r) => r.json()), fetch("new.json").then((r) => r.json())]).then(([f, a]) => {
+  formulae = f; added = a;
+  $("range").value = localStorage.range || "0";
+  setPool(); round();
+});
+</script>
+</body>
+</html>
